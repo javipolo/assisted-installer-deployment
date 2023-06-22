@@ -95,6 +95,12 @@ if __name__ == "__main__":
         required=False,
         help="PAT (personal access token) for accessing Jira",
     )
+    loginArgs.add_argument(
+        "--pull-secret",
+        default=os.environ.get("PULL_SECRET"),
+        required=False,
+        help="path to pull-secret.json file",
+    )
     parser.add_argument(
         "-a",
         "--all",

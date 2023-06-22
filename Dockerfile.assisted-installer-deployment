@@ -1,3 +1,5 @@
+FROM registry.ci.openshift.org/ocp/4.13:cli AS oc-image
+
 FROM quay.io/assisted-installer-ops/base-python:3.11.0
 
 RUN dnf install -y \
@@ -16,6 +18,8 @@ RUN pip install -r requirements.txt
 
 COPY dev-requirements.txt ./
 RUN pip install -r dev-requirements.txt
+
+COPY --from=oc-image /usr/bin/oc /usr/local/bin/
 
 ARG INSTALL_CCX=true
 
