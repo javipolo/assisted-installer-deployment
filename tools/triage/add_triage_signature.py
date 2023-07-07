@@ -2648,6 +2648,7 @@ class OSTreeCommitMismatch(ErrorSignature):
             comment_identifying_string="h1. ostree commitid does not match the one in openshift release image",
         )
 
+    @functools.lru_cache(maxsize=100)
     def get_os_content_image(self, release_image):
         command = ["oc", "adm", "release", "info", release_image, "-ojson"]
         if self.pull_secret_file:
@@ -2664,6 +2665,7 @@ class OSTreeCommitMismatch(ErrorSignature):
                         return tag["from"]["name"]
         return None
 
+    @functools.lru_cache(maxsize=100)
     def get_ostree_commitid_from_os_content_image(self, image):
         command = [
             "skopeo",
@@ -3111,6 +3113,14 @@ def main(args):
         dry_run_stream=sys.stdout if args.dry_run else None,
     )
 
+    pull_secret_file = args.pull_secret_file
+
+    if args.pull_secret_contents:
+        pull_secret_tmp_file = tempfile.NamedTemporaryFile(mode="w")
+        pull_secret_file = pull_secret_tmp_file.name
+        pull_secret_tmp_file.write(args.pull_secret_contents)
+        pull_secret_tmp_file.flush()
+
     issues = get_issues(
         jira_client,
         issue=args.issue,
@@ -3124,6 +3134,7 @@ def main(args):
             logger.info(f"Run `tail -f {dry_run_file.name}` to view dry run output in real time")
             process_issues(
                 jira_client,
+                pull_secret_file,
                 issues,
                 should_reevaluate=args.update,
                 only_specific_signatures=args.update_signature,
@@ -3134,7 +3145,7 @@ def main(args):
 
     process_issues(
         jira_client,
-        args.pull_secret_file,
+        pull_secret_file,
         issues,
         should_reevaluate=args.update,
         only_specific_signatures=args.update_signature,
@@ -3207,11 +3218,19 @@ def parse_args():
         help="PAT (personal access token) for accessing Jira",
     )
 
-    parser.add_argument(
+    pull_secrets_group = parser.add_argument_group(title="Pull Secret")
+    pull_secrets = pull_secrets_group.add_mutually_exclusive_group(required=False)
+    pull_secrets.add_argument(
         "--pull-secret-file",
         default=os.environ.get("PULL_SECRET_FILE"),
         required=False,
         help="path to pull-secret.json file",
+    )
+    pull_secrets.add_argument(
+        "--pull-secret-contents",
+        default=os.environ.get("PULL_SECRET_CONTENTS"),
+        required=False,
+        help="pull secret acutal file contents",
     )
 
     selectors_group = parser.add_argument_group(title="Issues selection")
